@@ -12,7 +12,7 @@ conexao.connect(err => {
 
         const app = customExpress();
 
-        app.listen(3000, () => {
+        app.listen(3505, () => {
             console.log('Listen app at port 3000');
         });
     }
