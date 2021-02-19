@@ -5,7 +5,7 @@ const app = new express();
 const faker = require('faker');
 const { urlencoded } = require('body-parser');
 
-app.use(bodyParser(urlencoded,{extended: true}));
+app.use(bodyParser());
 
 app.get('/:cpf', (req, res) => {
     const { cpf } = req.params

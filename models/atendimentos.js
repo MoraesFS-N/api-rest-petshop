@@ -1,75 +1,80 @@
 
+const axios = require('axios');
 const moment = require('moment');
-const conexao = require('../infraestrutura/conexao');
+const conexao = require('../infraestrutura/database/conexao');
+const repositorie = require('../repositories/atendimento');
+
 
 class Atendimento {
-    adiciona(atendimento, res){
 
-        const dataCriacao = moment().format('YYYY-MM-DD HH:MM:SS');
-        const data = moment(atendimento.data, 'DD/MM/YYYY').format('YYYY-MM-DD HH:MM:SS');
-        
-        const dataValida = moment(data).isSameOrAfter(dataCriacao);
-        const clienteValido = atendimento.cliente.length >= 5;
-        
-        const validacoes = [
+    constructor(){
+        this.dataValida = ({data, dataCriacao}) => moment(data).isSameOrAfter(dataCriacao);
+        this.clienteValido = (tamanho) => tamanho >= 5;
+        this.valida = (parametros) => {
+            this.validacoes.filter(campo => {
+                const { nome } = campo;
+                const { parametro } = parametros[nome];
+
+                return !campo.valido(parametro)
+            });
+        }
+
+        this.validacoes = [
             {
                 nome: 'data',
-                valido: dataValida,
+                valido: this.dataValida,
                 mensagem: 'Data deve ser maior ou igual a data atual',
             },
             {
                 nome: 'cliente',
-                valido: clienteValido,
+                valido: this.clienteValido,
                 mensagem: 'Nome de ver maior que 4 caracteres',
             }
-        ]
-        
-        const erros = validacoes.filter(campo => !campo.valido);        
+        ];
+    }
 
-        const atendimentoDatado = {...atendimento, dataCriacao, data};
-        const sql = 'INSERT INTO Atendimentos SET ?';
+
+    adiciona(atendimento){
+
+        const dataCriacao = moment().format('YYYY-MM-DD HH:MM:SS');
+        const data = moment(atendimento.data, 'DD/MM/YYYY').format('YYYY-MM-DD HH:MM:SS');
+
+        const parametros = {
+            data: {
+                data,
+                dataCriacao
+            },
+            cliente: {
+                tamanho: atendimento.cliente.length
+            }
+        }
         
+        const erros = this.valida(parametros);
         const existemErros = erros.length;
         
         if (existemErros) {
-            res.status(400).json(erros);
+            return new Promise((reject) => {
+                reject(erros);
+            });
         } else {
-            conexao.query(sql, atendimentoDatado, (erro, results) => {
-                if (erro) {
-                    res.status(400).json(erro);
-                }else{
-                    res.status(201).json(results);
-                }
+            const atendimentoDatado = {...atendimento, dataCriacao, data};
+
+            return repositorie.adiciona(atendimentoDatado).then(results => {
+                const id = results.insertId
+                return {...atendimento, id};
             });
         }
     }   
 
-    lista(res){
-        const sql = 'SELECT * FROM Atendimentos';
-
-        conexao.query(sql, (erro, results)=>{
-            if (erro) {
-                res.status(400).json(erro);
-            }else{
-                res.status(200).json(results);
-            }
-        });
+    lista(){
+        return repositorie.lista();
     }
 
-    buscaId(id, res){
-        const sql = `SELECT * FROM Atendimentos WHERE id = ${id}`;
-        
-        conexao.query(sql, (erro, results) => {
-            const atendimento = results[0];
-            if (erro) {
-                res.status(400).json(erro);
-            }else{
-                res.status(200).json(atendimento);
-            }
-        });
+    buscaId(id){
+        return repositorie.buscaId(id);
     }
 
-    altera(id, valores, res){
+    altera(id, valores){
         
         if (valores.data) {
             valores.data = moment(valores.data, 'DD/MM/YYYY').format('YYYY-MM-DD HH:MM:SS');
